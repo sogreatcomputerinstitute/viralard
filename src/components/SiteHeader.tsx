@@ -1,5 +1,17 @@
 ﻿import Link from "next/link";
 
+export function BuildStamp() {
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7);
+
+  if (!commit) return null;
+
+  return (
+    <span className="text-[10px] tabular-nums text-ink-muted/50" title="Deployed commit">
+      {commit}
+    </span>
+  );
+}
+
 export function Logo({ className = "" }: { className?: string }) {
   return (
     <Link href="/" className={`inline-flex items-center gap-2.5 ${className}`}>
@@ -46,6 +58,7 @@ export function SiteHeader({
                   Sign out
                 </button>
               </form>
+              <BuildStamp />
             </div>
           ) : (
             <Link href="/login" className="btn-ghost px-4 py-1.5 text-xs">

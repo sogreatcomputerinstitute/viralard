@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import type { Metadata } from "next";
+import { headers as headerList } from "next/headers";
 import { SiteHeader } from "@/components/SiteHeader";
 import { TeaserAnalyzer } from "@/components/TeaserAnalyzer";
 import { AnimatedHero, AnimatedSection, AnimatedStagger } from "@/components/Motion";
@@ -19,12 +20,27 @@ import type { Niche } from "@/lib/engine/types";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Viralard - Live Feed Hijack & Short-Form Script Simulator | Ask Ninja Tech",
-  description:
-    "Score your short-form video hook, rewrite it three ways, and simulate it inside a live TikTok, Reels or Shorts feed. Stop guessing your first 3 seconds.",
-  alternates: { canonical: "/" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const title = "Viralard - Live Feed Hijack & Short-Form Script Simulator | Ask Ninja Tech";
+  const description =
+    "Score your short-form video hook, rewrite it three ways, and simulate it inside a live TikTok, Reels or Shorts feed. Stop guessing your first 3 seconds.";
+
+  /*
+   * Derives the canonical origin from the incoming request when
+   * NEXT_PUBLIC_SITE_URL is unset, so canonical tags and Open Graph URLs stay
+   * correct on any Vercel domain or preview deployment without an env var.
+   */
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  const base = configured ?? (await headerList()).get("origin") ?? "https://viralard.vercel.app";
+
+  return {
+    title,
+    description,
+    alternates: { canonical: base },
+    openGraph: { url: base, title, description, siteName: "Viralard" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 const DEMO: { text: string; niche: Niche }[] = [
   { text: "Your first 3 seconds are wasted.", niche: "general" },
