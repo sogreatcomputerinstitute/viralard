@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0B0F19" />
+      <stop offset="100%" stop-color="#161B2B" />
+    </linearGradient>
+    <linearGradient id="ring" x1="8" y1="56" x2="52" y2="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="45%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#A855F7" />
+    </linearGradient>
+    <linearGradient id="arrow" x1="34" y1="40" x2="56" y2="8" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A855F7" />
+      <stop offset="55%" stop-color="#D946EF" />
+      <stop offset="100%" stop-color="#F0ABFC" />
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#bg)" />
+
+  <path
+    d="M42.5 17.8A21 21 0 1 0 46.2 24"
+    stroke="url(#ring)"
+    stroke-width="7"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <path
+    d="M17 40.5 26 31.5 33 36.5 44 25"
+    stroke="url(#ring)"
+    stroke-width="5.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <path d="M30 44 54 8" stroke="url(#arrow)" stroke-width="6" stroke-linecap="round" fill="none" />
+  <path d="M54 8 44 9.5 51 17Z" fill="url(#arrow)" />
+  <circle cx="56.5" cy="19" r="2.2" fill="#F0ABFC" />
+  <circle cx="50" cy="4.5" r="1.6" fill="#D946EF" />
+</svg>

@@ -1,0 +1,19 @@
+# Local env files
+.env
+.env*.local
+
+# deps
+node_modules
+.pnp
+.pnp.*
+
+# next
+.next
+out
+next-env.d.ts
+
+# misc
+.DS_Store
+*.pem
+.vercel
+*.tsbuildinfo

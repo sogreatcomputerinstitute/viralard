@@ -1,0 +1,285 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: #0b0f19;
+  --color-haze: #111625;
+  --color-accent: #a855f7;
+  --color-accent-2: #c084fc;
+  --color-accent-3: #e879f9;
+  --color-good: #34d399;
+  --color-mid: #fbbf24;
+  --color-bad: #fb7185;
+  --color-ink: #f3f4f6;
+  --color-ink-muted: #9ca3af;
+
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  /*
+   * Dark glass needs its own numbers. Light-glass recipes (white fill 15-25%,
+   * blur 30px+) turn milky on a near-black canvas and cost real GPU time.
+   * Fill was raised from 6% to 9% because the aurora sits behind every panel
+   * and a thin pane could not hold body text above 4.5:1 on the brightest
+   * region of the gradient.
+   */
+  --glass-blur: 14px;
+  --glass-fill: 0.09;
+  --glass-edge: 0.14;
+  --glass-shadow: 0 18px 40px -22px rgb(0 0 0 / 0.9);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--color-void);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/*
+ * Single glass surface. Nested backdrop-filter surfaces blur the parent's
+ * finished output instead of the page, which multiplies alphas and produces a
+ * milky panel. Nested surfaces get `.glass-fill` with no filter instead.
+ */
+@utility glass {
+  background: color-mix(in oklab, white var(--glass-fill), transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid color-mix(in oklab, white var(--glass-edge), transparent);
+  box-shadow: var(--glass-shadow);
+}
+
+/* For surfaces that sit inside another glass surface. Fill only, no filter. */
+@utility glass-fill {
+  background: color-mix(in oklab, white 0.045, transparent);
+  border: 1px solid color-mix(in oklab, white 0.08, transparent);
+}
+
+/*
+ * Chrome: navigation and overlays sit over content, not over the ground, so
+ * they need a scrim or body text scrolling underneath drops to ~1.2:1.
+ */
+@utility glass-chrome {
+  background: color-mix(in oklab, var(--color-void) 78%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid color-mix(in oklab, white 0.09, transparent);
+}
+
+/*
+ * Numbers need a stable backing. A translucent pane behind a 12px score or a
+ * pillar total cannot guarantee 4.5:1 against a shifting backdrop.
+ */
+@utility surface-solid {
+  background: color-mix(in oklab, var(--color-haze) 88%, transparent);
+  border: 1px solid color-mix(in oklab, white 0.09, transparent);
+}
+
+@utility text-gradient {
+  background: linear-gradient(
+    100deg,
+    var(--color-accent-2) 0%,
+    var(--color-accent) 45%,
+    var(--color-accent-3) 100%
+  );
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: gradient-pan 7s ease-in-out infinite;
+}
+
+@keyframes gradient-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@utility btn-primary {
+  background: linear-gradient(
+    100deg,
+    var(--color-accent) 0%,
+    color-mix(in oklab, var(--color-accent-2) 55%, var(--color-accent)) 100%
+  );
+  color: white;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 12px 30px -12px color-mix(in oklab, var(--color-accent) 80%, transparent);
+  transition: transform 150ms ease, filter 150ms ease, opacity 150ms ease;
+}
+
+@utility btn-ghost {
+  background: color-mix(in oklab, white 0.06, transparent);
+  border: 1px solid color-mix(in oklab, white 0.12, transparent);
+  color: rgb(244 244 245);
+  border-radius: 0.75rem;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+@utility focus-ring {
+  outline: none;
+  border-color: color-mix(in oklab, var(--color-accent) 60%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-accent) 18%, transparent);
+}
+
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.aurora span {
+  position: absolute;
+  display: block;
+  border-radius: 9999px;
+  filter: blur(90px);
+  /*
+   * Dropped from 0.42. The blobs sit behind glass panels, and at the old alpha
+   * the purple washed through enough to push body text under 4.5:1 in the
+   * worst-case region. 0.3 keeps the depth cue without competing with the ink.
+   */
+  opacity: 0.3;
+}
+
+/*
+ * Veil between the aurora and the glass. Without it the blobs read as bright
+ * patches behind body copy. This is a scrim, not a blur: cheap, static, and it
+ * puts a known lightness floor under every translucent surface.
+ */
+.aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 50% 0%, transparent 0%, rgb(11 15 25 / 0.55) 70%);
+  pointer-events: none;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, -6%, 0) scale(1.12);
+  }
+}
+
+.aurora span {
+  animation: drift 22s ease-in-out infinite;
+}
+
+@keyframes ring-draw {
+  from {
+    stroke-dashoffset: var(--ring-offset);
+  }
+  to {
+    stroke-dashoffset: var(--ring-target);
+  }
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes loader-slide {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-110%);
+  }
+  100% {
+    transform: translateY(340%);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-ring-draw {
+  animation: ring-draw 1000ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-fade-rise {
+  animation: fade-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-scan {
+  animation: scan 1.9s ease-in-out infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora span,
+  .animate-ring-draw,
+  .animate-fade-rise,
+  .animate-scan,
+  .animate-pulse-soft,
+  .text-gradient {
+    animation: none;
+  }
+
+  .text-gradient {
+    background-size: 100% 100%;
+  }
+}
+
+/*
+ * Reduce Transparency / Increase Contrast are real OS settings on macOS,
+ * Windows and iOS. Glass without this branch is a common accessibility miss.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-chrome {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: color-mix(in oklab, var(--color-haze) 96%, transparent);
+  }
+
+  .aurora span {
+    display: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .glass,
+  .glass-fill,
+  .glass-chrome,
+  .surface-solid {
+    background: var(--color-void);
+    border-color: rgb(255 255 255 / 0.5);
+  }
+}
