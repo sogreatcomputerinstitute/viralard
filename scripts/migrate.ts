@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+﻿import { readFileSync } from "node:fs";
 
 /**
  * Applies pending SQL through the Supabase PostgREST endpoint.
@@ -14,10 +14,8 @@ import { readFileSync } from "node:fs";
  *   grant  execute on function public.exec_sql(text) to service_role;
  *
  * With that in place this script can run migrations without the Supabase CLI,
- * which needs a personal access token.
+ * which needs a personal access token we do not have.
  */
-
-type Statement = { label: string; sql: string };
 
 async function post(sql: string): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -38,11 +36,11 @@ async function post(sql: string): Promise<void> {
 }
 
 /**
- * Statements are split on semicolons at end of line. This is safe for the
- * migration files here because none of them contain a semicolon inside a string
- * literal or a dollar-quoted body in the parts we split.
+ * Split on semicolons at end of line. Safe for the files shipped here because
+ * none of them contain a semicolon inside a string literal or a dollar-quoted
+ * body within the parts we split.
  */
-function split(sql: string): string[] {
+function splitStatements(sql: string): string[] {
   return sql
     .split(/;\s*\r?\n/)
     .map((chunk) =>
@@ -57,8 +55,7 @@ function split(sql: string): string[] {
 
 async function main() {
   const target = process.argv[2] ?? "supabase/schema.sql";
-  const sql = readFileSync(target, "utf8");
-  const statements: Statement[] = split(sql);
+  const statements = splitStatements(readFileSync(target, "utf8"));
 
   console.log(`${target}: ${statements.length} statements\n`);
 
@@ -67,6 +64,7 @@ async function main() {
 
   for (const [index, statement] of statements.entries()) {
     const label = statement.split("\n")[0].slice(0, 62);
+
     try {
       await post(statement);
       applied += 1;
