@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ScoreRing } from "@/components/ScoreRing";
 import { StageLoader, type LoaderStage } from "@/components/StageLoader";
 import { VideoAnalyzer } from "@/components/VideoAnalyzer";
+import { ThumbnailStudio } from "@/components/ThumbnailStudio";
 import { AppSidebar } from "@/components/AppSidebar";
 import { HelpModals } from "@/components/HelpModals";
 import { ProGate } from "@/components/ProGate";
@@ -90,16 +91,22 @@ export function Analyzer({
   const [personaId, setPersonaId] = useState<string>("none");
   const [language, setLanguage] = useState<string>("none");
 
-  const [modal, setModal] = useState<"persona" | "translate" | "rubric" | "thumbnail" | "scout" | null>(null);
+  const [modal, setModal] = useState<
+  "persona" | "translate" | "rubric" | "thumbnail" | "scout" | "grade" | null
+>(null);
   const [gate, setGate] = useState<{ feature: string; detail: string } | null>(null);
 
   const router = useRouter();
+  const personaActive = personaId !== "none";
   const pro = plan === "pro";
   const remaining = HOOK_MAX_CHARS - text.length;
   const canAnalyze = text.trim().length >= 8;
   const quotaLeft = monthlyLimit - analysesUsed;
 
-  const liveScore = useMemo(() => (text.trim() ? scoreHook(text, niche) : null), [text, niche]);
+  const liveScore = useMemo(
+    () => (text.trim() ? scoreHook(text, niche, personaActive ? personaId : null) : null),
+    [text, niche, personaId, personaActive],
+  );
 
   function reset() {
     setResult(null);
@@ -386,34 +393,31 @@ export function Analyzer({
         <div className="surface-solid rounded-3xl p-6 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium text-ink">Thumbnail text</h2>
+              <h2 className="text-sm font-medium text-ink">Thumbnail lab</h2>
               <p className="mt-1 text-xs text-ink-muted">
-                Under 4 words each, built to be readable at cover size.
+                Three titles from your script, graded and tested against a real grid.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setModal("rubric")}
-              className="text-xs text-ink-muted underline-offset-4 hover:text-ink hover:underline"
-            >
-              How is my score calculated?
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setModal("thumbnail")}
+                className="text-xs text-ink-muted underline-offset-4 hover:text-ink hover:underline"
+              >
+                What makes a cover title work?
+              </button>
+              <button
+                type="button"
+                onClick={() => setModal("grade")}
+                className="text-xs text-ink-muted underline-offset-4 hover:text-ink hover:underline"
+              >
+                How is it graded?
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {thumbnails.map((thumbnail, index) => (
-              <div
-                key={thumbnail}
-                className="rounded-xl border border-white/10 bg-gradient-to-br from-accent/25 to-accent-3/10 p-6 text-center"
-              >
-                <span className="text-xl font-black uppercase leading-tight tracking-tight text-ink">
-                  {thumbnail}
-                </span>
-                <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-ink-muted">
-                  Option {index + 1}
-                </p>
-              </div>
-            ))}
+          <div className="mt-5">
+            <ThumbnailStudio thumbnails={thumbnails} />
           </div>
         </div>
       ) : null}
@@ -439,6 +443,9 @@ export function Analyzer({
         onCloseRubric={() => setModal(null)}
         thumbnailOpen={modal === "thumbnail"}
         onCloseThumbnail={() => setModal(null)}
+        gradeOpen={modal === "grade"}
+        onOpenGrade={() => setModal("grade")}
+        onCloseGrade={() => setModal(null)}
         thumbnails={thumbnails}
         plan={plan}
       />

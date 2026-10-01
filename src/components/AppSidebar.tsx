@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { LANGUAGES, PERSONAS, type Persona } from "@/lib/engine/personas";
+import { LANGUAGES, PERSONAS, findPersona, type Persona } from "@/lib/engine/personas";
 
 const NAV = [
   {
@@ -65,15 +65,9 @@ const NAV = [
   },
 ];
 
-const PERSONA_NOTES: Record<string, string> = {
-  none: "No audience lock. Writes for a general short-form viewer.",
-  "genz-gamers": "Fast, irreverent, competitive. Gaming and internet shorthand, no corporate tone.",
-  "corporate-managers": "Concise and evidence-led. Leads with the business result, not the method.",
-  parents: "Warm and practical. Names the daily reality, no guilt-tripping.",
-  "tech-founders": "Dense and contrarian. Assumes they know what a moat is.",
-  "nigerian-creators": "Nigerian English and Pidgin. Local references, naira price points.",
-  "first-time-buyers": "Zero jargon. Names the fear directly and makes the payoff specific.",
-};
+function rulesFor(personaId: string): string {
+  return findPersona(personaId)?.rules.summary ?? "No audience lock. Writes for a general short-form viewer.";
+}
 
 export function AppSidebar({
   signedIn,
@@ -193,9 +187,9 @@ onClick={() => {
             })}
           </div>
 
-          {currentPersona && PERSONA_NOTES[currentPersona] ? (
+          {currentPersona !== "none" ? (
             <p className="mt-3 text-[11px] leading-relaxed text-ink-muted/70">
-              {PERSONA_NOTES[currentPersona]}
+              {rulesFor(currentPersona)}
             </p>
           ) : null}
         </div>

@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { cacheKey, generateRewritesAndThumbnails } from "@/lib/engine/analyze";
 import { DEFAULT_MODEL, isGeminiConfigured } from "@/lib/ai/gemini";
 import { scoreHook, analyzeNiche } from "@/lib/engine/score";
 import { HOOK_MAX_CHARS, isNiche, type AnalyzeResponse } from "@/lib/engine/types";
 import { findPersona, languageLabel } from "@/lib/engine/personas";
 import { createClient } from "@/lib/supabase/server";
+import { saveAnalysis } from "@/lib/persistence";
 import { FREE_MONTHLY_LIMIT, PRO_FAIR_USE_LIMIT } from "@/lib/limits";
 
 export const runtime = "nodejs";
@@ -57,65 +58,6 @@ async function spendCredit(userId: string): Promise<number> {
 
   await supabase.from("profiles").update({ credits: remaining - 1 }).eq("id", userId);
   return remaining - 1;
-}
-
-async function persist(
-  quota: Quota,
-  cacheHit: boolean,
-  niche: string,
-  personaId: string | null,
-  language: string,
-  strength: ReturnType<typeof scoreHook>,
-  rewrites: AnalyzeResponse["rewrites"],
-  thumbnails: string[],
-): Promise<void> {
-  const supabase = await createClient();
-
-  if (!cacheHit) {
-    /*
-     * Must be the SQL increment function, not an INSERT. A plain insert threw
-     * a duplicate-key error from the second analysis of a month onwards, so the
-     * free counter sat at 1 forever and nobody was ever gated.
-     */
-    const { error } = await supabase.rpc("increment_usage", { p_month: monthStart() });
-    if (error) console.error("usage increment failed", error.message);
-  }
-
-  const { data: hook, error: hookError } = await supabase
-    .from("hooks")
-    .insert({
-      user_id: quota.userId,
-      text: strength.text,
-      niche,
-      persona_id: personaId,
-      language,
-      total: strength.total,
-      band: strength.band,
-      pillars: strength.pillars,
-      signals: strength.signals,
-      advice: strength.advice,
-      thumbnails,
-    })
-    .select("id")
-    .single();
-
-  if (hookError || !hook) {
-    if (hookError) console.error("hook insert failed", hookError.message);
-    return;
-  }
-
-  await supabase.from("rewrites").insert(
-    rewrites
-      .filter((rewrite) => rewrite.text)
-      .map((rewrite) => ({
-        hook_id: hook.id,
-        user_id: quota.userId,
-        pattern: rewrite.pattern,
-        title: rewrite.title,
-        text: rewrite.text,
-        rationale: rewrite.rationale,
-      })),
-  );
 }
 
 export async function POST(request: Request) {
@@ -220,16 +162,15 @@ export async function POST(request: Request) {
 
   if (cached) {
     if (quota) {
-      await persist(
-        quota,
-        true,
+      await saveAnalysis({
+        userId: quota.userId,
         niche,
-        effectivePersonaId,
-        effectiveLanguage,
+        personaId: effectivePersonaId,
+        language: effectiveLanguage,
         strength,
-        cached.rewrites,
-        cached.thumbnails,
-      );
+        rewrites: cached.rewrites,
+        thumbnails: cached.thumbnails,
+      });
     }
     return NextResponse.json({ ...cached, cached: true });
   }
@@ -260,16 +201,15 @@ export async function POST(request: Request) {
     memoryCache.set(key, response);
 
     if (quota) {
-      await persist(
-        quota,
-        false,
+      await saveAnalysis({
+        userId: quota.userId,
         niche,
-        effectivePersonaId,
-        effectiveLanguage,
+        personaId: effectivePersonaId,
+        language: effectiveLanguage,
         strength,
         rewrites,
         thumbnails,
-      );
+      });
     }
 
     return NextResponse.json({

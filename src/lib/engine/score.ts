@@ -1,4 +1,4 @@
-import { NICHE_VALUES, type Band, type HookStrengthResult, type Niche, type PillarScore, type ScorePillar, HOOK_MAX_CHARS } from "./types";
+﻿import { NICHE_VALUES, type Band, type HookStrengthResult, type Niche, type PillarScore, type ScorePillar, HOOK_MAX_CHARS } from "./types";
 import { nicheMultiplier, NICHE_LABELS } from "./config";
 import { runRubric } from "./rubric";
 import { clamp, normalize, round, tokenize } from "./text";
@@ -40,11 +40,16 @@ function adviceFor(pillars: Record<ScorePillar, PillarScore>): string[] {
   return advice.slice(0, 3);
 }
 
-export function scoreHook(text: string, niche: Niche = "general"): HookStrengthResult {
+export function scoreHook(
+  text: string,
+  niche: Niche = "general",
+  personaId: string | null = null,
+): HookStrengthResult {
   const cleaned = normalize(text).slice(0, HOOK_MAX_CHARS);
   const truncated = normalize(text).length > HOOK_MAX_CHARS;
 
-  const rubric = runRubric(cleaned);
+  const rubric = runRubric(cleaned, personaId);
+  const personaActive = rubric.personaId !== "none";
 
   const pillars = {} as Record<ScorePillar, PillarScore>;
 
@@ -70,7 +75,10 @@ export function scoreHook(text: string, niche: Niche = "general"): HookStrengthR
   const total = clamp(rubric.total, 0, 100);
   const band = bandFor(total);
   const signals = PILLAR_ORDER.flatMap((p) => pillars[p].signals);
-  const nicheNote = niche === "general" ? "" : ` Tuned for ${NICHE_LABELS[niche]}.`;
+  const notes: string[] = [];
+  if (niche !== "general") notes.push(`Niche: ${NICHE_LABELS[niche]}`);
+  if (personaActive) notes.push(`Scored for ${rubric.personaLabel}`);
+  const contextNote = notes.length > 0 ? ` ${notes.join(" - ")}.` : "";
 
   return {
     text: cleaned,
@@ -80,7 +88,7 @@ export function scoreHook(text: string, niche: Niche = "general"): HookStrengthR
     band,
     pillars,
     signals,
-    verdict: verdictFor(total, band) + nicheNote + (truncated ? " Text was cut at 250 characters." : ""),
+    verdict: verdictFor(total, band) + contextNote + (truncated ? " Text was cut at 250 characters." : ""),
     advice: adviceFor(pillars),
   };
 }

@@ -1,23 +1,18 @@
-/*
- * Zero-API rubric, implemented from the written spec: four metrics, 25 points
- * each, deterministic, no model involved.
- *
- * Deviation log (each one is a case where the spec as written misranks):
- *
- *  1. STRUCTURE gives partial credit for a strong opening that is not in the
- *     exact phrase list. Verbatim, "Here's why your first video flopped" and
- *     "Your intro is garbage" both scored 0/25 - the same keyword-only failure
- *     that made AI rewrites score lower than their input.
- *
- *  2. STRUCTURE penalties are additive and floored at 0, matching the spec's
- *     own instruction for readability.
- *
- *  3. CURIOSITY requires the SECRET token or NUMBER to count toward the 2-point
- *     threshold. "This"/"Here" alone is too weak - "This one tool everyone
- *     uses" is a generic listicle opener and should not score full marks.
- */
+﻿import { createHash } from "node:crypto";
+import { generateStructured } from "../ai/gemini";
+import { LANGUAGE_DIRECTIVES, languageLabel, PERSONAS } from "./personas";
+import { PATTERNS, PATTERN_TITLES } from "./patterns";
+import { NICHE_LABELS } from "./config";
+import {
+  HOOK_MAX_CHARS,
 
-import { clamp, round, tokenize } from "./text";
+  type Niche,
+  type PatternId,
+  type Rewrite,
+
+} from "./types";
+import { findPersona, type Persona } from "./personas";
+import { clamp, normalize, round, tokenize } from "./text";
 
 export const METRIC_MAX = 25;
 
@@ -34,13 +29,17 @@ export type MetricResult = {
 export type RubricResult = {
   total: number;
   metrics: Record<MetricKey, MetricResult>;
+  personaId: string;
+  personaLabel: string;
 };
 
+/** Personas move the speed band, so the thresholds cannot be module constants. */
 const HIGH_PERFORMANCE_OPENERS = [
   "stop doing",
   "stop buying",
   "stop making",
   "stop posting",
+  "stop wasting",
   "don't make this",
   "dont make this",
   "don't post",
@@ -55,7 +54,6 @@ const HIGH_PERFORMANCE_OPENERS = [
   "why you're failing",
   "why you keep failing",
   "the reason you",
-  "stop wasting",
 ];
 
 const STANDARD_OPENERS = [
@@ -82,104 +80,71 @@ const BORING_INTROS = [
   "what's up",
 ];
 
-const SECRET_TOKENS = ["secret", "hidden", "banned", "unfair", "hack", "trick", "nobody knows"];
+const HEDGES = ["maybe", "perhaps", "possibly", "i think", "kind of", "sort of", "somewhat", "hopefully"];
 
-/*
- * Deviation 3 (expanded). The spec's two countable conditions were SECRET and
- * NUMBER only. Measured against 10 real hooks that returned 0/25 Curiosity Gap
- * six times and capped "Here's why your first video flopped" at 57/100, because
- * an open loop is usually signalled by a question word, a withheld reason, or
- * second person - none of which the spec counted. The 2-of-N threshold is kept,
- * the token families are widened so the metric is reachable by real hooks.
- * A bare pointer ("this", "here", "that", "these") never counts on its own.
- */
-const OPEN_LOOP_TOKENS = [
-  "why",
-  "how",
-  "the reason",
-  "because",
-  "what happened",
-  "what i found",
-  "turns out",
-  "here's why",
-  "here is why",
-];
-
-const CONFRONT_TOKENS = [
-  "stop",
-  "don't",
-  "dont",
-  "never",
-  "wrong",
-  "mistake",
-  "ruined",
-  "failing",
-  "fail",
-  "wasted",
-  "garbage",
-  "trash",
-  "useless",
-];
-
-const ABSOLUTE_TOKENS = ["every", "nobody", "no one", "always", "everyone", "nobody's", "only"];
-
-const SECOND_PERSON_TOKENS = ["you", "your", "you're", "you've", "yourself"];
+/** Jargon proxy: a word longer than this many characters. */
+const LONG_WORD_CHARS = 8;
 
 function countWords(text: string): number {
   return tokenize(text).length;
 }
 
-function scoreSpeed(text: string): MetricResult {
+function scoreSpeed(text: string, max: number, persona: Persona): MetricResult {
   const words = countWords(text);
+  const [low, high] = persona.rules.idealWords;
+  const notes: string[] = [];
   let earned: number;
-  let note: string;
 
-  if (words >= 5 && words <= 11) {
-    earned = METRIC_MAX;
-    note = `${words} words - the sweet spot for 3 seconds of speech`;
-  } else if (words >= 12 && words <= 15) {
+  if (words >= low && words <= high) {
+    earned = max;
+    notes.push(`${words} words - right for ${persona.label.toLowerCase()}`);
+  } else if (words > high && words <= persona.rules.maxWords) {
     earned = 15;
-    note = `${words} words - wordy, needs rapid delivery`;
-  } else if (words >= 1 && words <= 4) {
-    earned = 10;
-    note = `${words} words - too short to carry context`;
-  } else {
+    notes.push(`${words} words - above the ${high} word ceiling for this audience`);
+  } else if (words > persona.rules.maxWords) {
     earned = 0;
-    note = `${words} words - too slow for short-form retention`;
+    notes.push(`${words} words - past ${persona.rules.maxWords}, too slow for this audience`);
+  } else {
+    earned = 10;
+    notes.push(`${words} words - under ${low}, too little context for this audience`);
   }
 
-  return { key: "speed", label: "Speed & Pacing", earned, max: METRIC_MAX, notes: [note] };
+  if (words === 0) {
+    earned = 0;
+    notes.unshift("No words to score");
+  }
+
+  return { key: "speed", label: "Speed & Pacing", earned: clamp(earned, 0, max), max, notes };
 }
 
-function scoreReadability(text: string): MetricResult {
+function scoreReadability(text: string, max: number, persona: Persona): MetricResult {
   const notes: string[] = [];
-  let earned = METRIC_MAX;
+  const words = tokenize(text);
+  let earned = max;
 
-  const longWords = tokenize(text).filter((word) => word.length > 8);
+const longWords = words.filter((word) => word.length > LONG_WORD_CHARS);
   if (longWords.length > 0) {
     const penalty = longWords.length * 5;
     earned -= penalty;
-    notes.push(`Jargon: -${penalty} for ${longWords.length} word(s) over 8 characters (${longWords.join(", ")})`);
+    notes.push(`Jargon: -${penalty} for ${longWords.length} word(s) over ${LONG_WORD_CHARS} characters (${longWords.join(", ")})`);
   }
 
-  const hasSemicolon = text.includes(";");
-  const commaCount = (text.match(/,/g) ?? []).length;
-  if (hasSemicolon || commaCount > 1) {
-    earned -= 10;
-    notes.push(`Run-on: -10 for ${hasSemicolon ? "a semicolon" : `${commaCount} commas`}`);
+  const formal = persona.rules.formalWords.filter((word) => {
+    const lower = text.toLowerCase();
+    return new RegExp(`(^|[^a-z])${word}([^a-z]|$)`, "i").test(lower);
+  });
+
+  if (formal.length > 0) {
+    const penalty = Math.min(12, formal.length * 4);
+    earned -= penalty;
+    notes.push(`Register: -${penalty} for ${persona.label} (${formal.join(", ")})`);
   }
 
   if (notes.length === 0) {
-    notes.push("Short words, single clause - easy to follow on a fast scroll");
+    notes.push("Short words, single clause, no register mismatch");
   }
 
-  return {
-    key: "readability",
-    label: "Readability",
-    earned: clamp(earned, 0, METRIC_MAX),
-    max: METRIC_MAX,
-    notes,
-  };
+  return { key: "readability", label: "Readability", earned: clamp(earned, 0, max), max, notes };
 }
 
 function startsWithAny(text: string, phrases: string[]): string | null {
@@ -187,7 +152,7 @@ function startsWithAny(text: string, phrases: string[]): string | null {
   return phrases.find((phrase) => lower.startsWith(phrase)) ?? null;
 }
 
-function scoreStructure(text: string): MetricResult {
+function scoreStructure(text: string, max: number): MetricResult {
   const notes: string[] = [];
   let earned = 0;
 
@@ -195,21 +160,18 @@ function scoreStructure(text: string): MetricResult {
   const standard = startsWithAny(text, STANDARD_OPENERS);
 
   if (high) {
-    earned += METRIC_MAX;
+    earned += max;
     notes.push(`High-performance opening: "${high}"`);
   } else if (standard) {
     earned += 10;
     notes.push(`Standard opening: "${standard}"`);
   } else {
-    /*
-     * Deviation 1. The spec awards 0 here, which scores genuine hooks at zero.
-     * A short, blunt, declarative opener is a pattern interrupt whether or not
-     * it appears on the phrase list, so award a quarter for that shape.
-     */
     const words = countWords(text);
-    const hedged = /\b(maybe|perhaps|possibly|i think|kind of|sort of|somewhat|hopefully)\b/i.test(text);
-    const isQuestion = text.includes("?");
-    if (words > 0 && words <= 12 && !hedged && !isQuestion) {
+    const hedged = HEDGES.some((hedge) =>
+      new RegExp(`(^|[^a-z])${hedge}([^a-z]|$)`, "i").test(text.toLowerCase()),
+    );
+
+    if (words > 0 && words <= 12 && !hedged && !text.includes("?")) {
       earned += 12;
       notes.push("Short declarative opener - interruptive even without a listed phrase");
     } else {
@@ -224,83 +186,180 @@ function scoreStructure(text: string): MetricResult {
     notes.push(`Boring intro: -15 for "${boring}"`);
   }
 
-  return {
-    key: "structure",
-    label: "Structure & Triggers",
-    earned: clamp(earned, 0, METRIC_MAX),
-    max: METRIC_MAX,
-    notes,
-  };
+  return { key: "structure", label: "Structure & Triggers", earned: clamp(earned, 0, max), max, notes };
 }
 
-function scoreCuriosity(text: string): MetricResult {
+function scoreCuriosity(text: string, max: number, persona: Persona): MetricResult {
   const notes: string[] = [];
   const lower = text.toLowerCase();
+  const matched = new Set<string>();
   let hits = 0;
 
-  const families: [string, string[], string][] = [
-    ["Secret token", SECRET_TOKENS, "secret"],
-    ["Open loop", OPEN_LOOP_TOKENS, "open loop"],
-    ["Confrontational", CONFRONT_TOKENS, "confrontational"],
-    ["Absolute", ABSOLUTE_TOKENS, "absolute"],
-    ["Number hook", ["", ""], "number"],
-  ];
+  for (const boost of persona.rules.boosts) {
+    const found = boost.terms.find((term) =>
+      term.length <= 2 ? lower.includes(term) : new RegExp(`(^|[^a-z])${term}([^a-z]|$)`, "i").test(lower),
+    );
 
-  for (const [label, tokens, kind] of families) {
-    if (kind === "number") {
-      if (/\d/.test(text)) {
-        hits += 1;
-        notes.push("Number hook: contains a digit");
-      }
-      continue;
-    }
-
-    const found = tokens.find((token) => lower.includes(token));
     if (found) {
       hits += 1;
-      notes.push(`${label}: "${found}"`);
+      matched.add(boost.label);
+      notes.push(`${boost.label}: "${found.trim()}"`);
     }
   }
 
-  const secondPerson = SECOND_PERSON_TOKENS.find((token) => lower.includes(token));
+  if (/\d/.test(text)) {
+    hits += 1;
+    notes.push("Number hook: contains a digit");
+  }
+
+  const secondPerson = ["you", "your", "you're", "you've"].find((token) =>
+    new RegExp(`(^|[^a-z])${token}([^a-z]|$)`, "i").test(lower),
+  );
   if (secondPerson) {
     hits += 1;
     notes.push(`Second person: "${secondPerson}"`);
   }
 
-  const pointer = ["this", "that", "these", "here"].find((token) => lower.includes(token));
+  const pointer = ["this", "that", "these", "here"].find((token) =>
+    new RegExp(`(^|[^a-z])${token}([^a-z]|$)`, "i").test(lower),
+  );
   if (pointer) {
     notes.push(`Pointer: "${pointer}" (never counts alone)`);
   }
 
-  const earned = hits >= 2 ? METRIC_MAX : hits === 1 ? 15 : 0;
-  if (hits === 0) notes.push("No curiosity tokens found");
+  const earned = hits >= 2 ? max : hits === 1 ? 15 : 0;
+
+  if (hits === 0) notes.push(`No ${persona.label.toLowerCase()} signals found`);
   if (hits === 1) notes.push("Only one signal - a partial open loop");
 
-  return { key: "curiosity", label: "Curiosity Gap", earned, max: METRIC_MAX, notes };
+  return { key: "curiosity", label: "Curiosity Gap", earned, max, notes };
 }
 
-const SCORERS: Record<MetricKey, (text: string) => MetricResult> = {
-  speed: scoreSpeed,
-  readability: scoreReadability,
-  structure: scoreStructure,
-  curiosity: scoreCuriosity,
-};
+export function runRubric(text: string, personaId: string | null = null): RubricResult {
+  const persona = findPersona(personaId) ?? PERSONAS_FALLBACK;
 
-export function runRubric(text: string): RubricResult {
   const metrics = {
-    speed: scoreSpeed(text),
-    readability: scoreReadability(text),
-    structure: scoreStructure(text),
-    curiosity: scoreCuriosity(text),
+    speed: scoreSpeed(text, METRIC_MAX, persona),
+    readability: scoreReadability(text, METRIC_MAX, persona),
+    structure: scoreStructure(text, METRIC_MAX),
+    curiosity: scoreCuriosity(text, METRIC_MAX, persona),
   };
-
-  void SCORERS;
 
   const total = round(
     Object.values(metrics).reduce((sum, metric) => sum + metric.earned, 0),
     0,
   );
 
-  return { total: clamp(total, 0, 100), metrics };
+  return {
+    total: clamp(total, 0, 100),
+    metrics,
+    personaId: persona.id,
+    personaLabel: persona.label,
+  };
 }
+
+function buildPrompt(
+  text: string,
+  niche: Niche,
+  persona: Persona | null,
+  language: string,
+): string {
+  const patternBlock = PATTERNS.map(
+    (p, i) => `[${i + 1}] ${p.title}\nGoal: ${p.goal}\nRule: ${p.instruction}`,
+  ).join("\n\n");
+
+  const personaBlock = persona
+    ? `\nTARGET AUDIENCE - this overrides everything else:\n${persona.prompt}\nLength target: ${persona.rules.idealWords[0]} to ${persona.rules.idealWords[1]} words.\nAvoid register that alienates this audience.\n`
+    : "";
+
+  const languageDirective = LANGUAGE_DIRECTIVES[language];
+  const languageBlock = languageDirective
+    ? `\nOUTPUT LANGUAGE - ${languageLabel(language)}:\n${languageDirective}\nProduce the three rewrites in ${languageLabel(language)}, not English.\n`
+    : "\nWrite all three rewrites in English.\n";
+
+  return [
+    "You rewrite the opening hook of short-form vertical video (TikTok, Reels, Shorts).",
+    `Niche: ${NICHE_LABELS[niche]}.`,
+    personaBlock,
+    "Rewrite the source hook into exactly three alternatives, one per pattern below.",
+    "Hard rules for every rewrite:",
+    "- 45 characters maximum. This is non-negotiable and is what the tool enforces.",
+    "- That length is what makes it speakable in about 3 seconds.",
+    "- Must be speakable out loud in roughly 3 seconds.",
+    languageBlock,
+    "- Spoken register. No emoji, no hashtags, no camera directions, no quotation marks around the whole line.",
+    "- No greeting or sign-off.",
+    "- Preserve the creator's actual topic. Do not invent a new subject.",
+    "",
+    patternBlock,
+    "",
+    `Source hook: ${text}`,
+    "",
+    "Then suggest exactly three text-overlay titles for the video thumbnail.",
+    "Hard rules for thumbnail titles:",
+    "- Under 4 words each.",
+    "- All caps, no emoji, no hashtags, no punctuation at the end.",
+    "- Must be readable at thumbnail size, so keep every word short.",
+    "",
+    'Return JSON only, in this exact shape:',
+    '{"rewrites":[{"pattern":"pattern_interrupt","text":"...","rationale":"..."}],"thumbnails":["...","...","..."]}',
+    "Include all three pattern ids exactly once, in the order listed above, and exactly three thumbnails.",
+  ].join("\n");
+}
+
+type RewritePayload = { pattern: PatternId; text: string; rationale: string };
+
+function toRewrites(payload: RewritePayload[]): Rewrite[] {
+  return PATTERNS.map((pattern) => {
+    const match = payload.find((r) => r.pattern === pattern.id);
+    return {
+      pattern: pattern.id,
+      title: PATTERN_TITLES[pattern.id],
+      text: match ? normalize(match.text).slice(0, HOOK_MAX_CHARS) : "",
+      rationale: match?.rationale ?? "",
+    };
+  });
+}
+
+export function cacheKey(
+  text: string,
+  niche: string,
+  persona = "none",
+  language = "none",
+): string {
+  return createHash("sha256")
+    .update(`${normalize(text).toLowerCase()}::${niche}::${persona}::${language}::v3`)
+    .digest("hex");
+}
+
+
+
+export async function generateRewrites(
+  text: string,
+  niche: Niche,
+  personaId: string | null = null,
+  language = "none",
+): Promise<Rewrite[]> {
+  const result = await generateRewritesAndThumbnails(text, niche, personaId, language);
+  return result.rewrites;
+}
+
+export async function generateRewritesAndThumbnails(
+  text: string,
+  niche: Niche,
+  personaId: string | null = null,
+  language = "none",
+): Promise<{ rewrites: Rewrite[]; thumbnails: string[] }> {
+  const persona = findPersona(personaId);
+  const payload = await generateStructured<{ rewrites?: RewritePayload[]; thumbnails?: string[] }>(
+    buildPrompt(text, niche, persona, language),
+    { maxOutputTokens: 1400 },
+  );
+
+  return {
+    rewrites: toRewrites(payload.rewrites ?? []),
+    thumbnails: (payload.thumbnails ?? []).filter((t) => typeof t === "string").slice(0, 3),
+  };
+}
+
+const PERSONAS_FALLBACK = PERSONAS[0];

@@ -1,8 +1,10 @@
-"use client";
+﻿"use client";
 
 import { Modal } from "@/components/Modal";
 import { PERSONAS, LANGUAGE_DIRECTIVES, LANGUAGES } from "@/lib/engine/personas";
 import { PILLAR_MAX } from "@/lib/engine/config";
+import { VIDEO_THEMES } from "@/lib/contrast";
+import { THUMBNAIL_GENERATOR_RULES, THUMBNAIL_MAX_WORDS } from "@/lib/thumbnail";
 
 export function HelpModals({
   personaOpen,
@@ -13,6 +15,9 @@ export function HelpModals({
   onCloseRubric,
   thumbnailOpen,
   onCloseThumbnail,
+  gradeOpen,
+  onOpenGrade,
+  onCloseGrade,
   thumbnails,
   plan,
 }: {
@@ -24,6 +29,9 @@ export function HelpModals({
   onCloseRubric: () => void;
   thumbnailOpen: boolean;
   onCloseThumbnail: () => void;
+  gradeOpen: boolean;
+  onOpenGrade: () => void;
+  onCloseGrade: () => void;
   thumbnails: string[];
   plan: "free" | "pro";
 }) {
@@ -214,6 +222,57 @@ export function HelpModals({
             <li>Concrete, not clever. &ldquo;STOP BUYING HYPE&rdquo; beats &ldquo;YOU WONT BELIEVE THIS&rdquo;</li>
             <li>Never repeat your hook word for word, or the tap feels like a rerun</li>
             <li>Contrast lives in the image, so keep the text plain and heavy</li>
+          </ul>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpenGrade}
+          className="btn-ghost mt-5 w-full px-5 py-2.5 text-sm"
+        >
+          How are thumbnails graded?
+        </button>
+      </Modal>
+
+      <Modal open={gradeOpen} onClose={onCloseGrade} title="Thumbnail grading" size="lg">
+        <p className="text-sm leading-relaxed text-ink-muted">
+          Three deterministic checks, no model involved. The generator writes the words; every judgement here is
+          arithmetic, so the same title always scores the same.
+        </p>
+
+        <div className="mt-5 space-y-3">
+          <div className="surface-solid rounded-xl p-4">
+            <p className="text-xs font-medium text-ink">1. Length</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">
+              {THUMBNAIL_MAX_WORDS} words or fewer. Anything longer wraps, shrinks, and becomes unreadable in a
+              grid. This is the check that fails most often.
+            </p>
+          </div>
+
+          <div className="surface-solid rounded-xl p-4">
+            <p className="text-xs font-medium text-ink">2. Contrast</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">
+              Scored against {VIDEO_THEMES.length} real video background themes - studio white, window daylight,
+              beach sand, night street and the rest. White text with a drop shadow has to clear most of them,
+              not just the flattering ones.
+            </p>
+          </div>
+
+          <div className="surface-solid rounded-xl p-4">
+            <p className="text-xs font-medium text-ink">3. Safe zone</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">
+              Longer copy renders smaller and reaches further down the frame. Past roughly 86% vertical it
+              collides with the duration badge - the one overlay that is always present in a grid.
+            </p>
+          </div>
+        </div>
+
+        <div className="surface-solid mt-5 rounded-xl p-4">
+          <p className="text-xs font-medium text-ink">Writing rules the generator follows</p>
+          <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-ink-muted">
+            {THUMBNAIL_GENERATOR_RULES.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
           </ul>
         </div>
       </Modal>
