@@ -5,6 +5,7 @@ import { ScoreRing } from "@/components/ScoreRing";
 import { StageLoader, type LoaderStage } from "@/components/StageLoader";
 import { VideoAnalyzer } from "@/components/VideoAnalyzer";
 import { ThumbnailStudio } from "@/components/ThumbnailStudio";
+import { CompliancePanel } from "@/components/CompliancePanel";
 import { AppSidebar } from "@/components/AppSidebar";
 import { HelpModals } from "@/components/HelpModals";
 import { ProGate } from "@/components/ProGate";
@@ -245,7 +246,9 @@ export function Analyzer({
           </div>
         </div>
 
-        <VideoAnalyzer
+        <CompliancePanel text={text} />
+
+<VideoAnalyzer
           onTranscript={(value) => {
             setText(value);
             reset();
