@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { TeaserAnalyzer } from "@/components/TeaserAnalyzer";
 import { AnimatedHero, AnimatedSection, AnimatedStagger } from "@/components/Motion";
 import { AuroraProvider } from "@/components/AuroraProvider";
+import { WhatsAppContact } from "@/components/WhatsAppContact";
 import { PATTERNS } from "@/lib/engine/patterns";
 import { scoreHook } from "@/lib/engine/score";
 import { FREE_MONTHLY_LIMIT } from "@/lib/limits";
@@ -307,14 +308,17 @@ export default async function LandingPage() {
                     )}
                   </ul>
 
-                  <Link
-                    href={key === "free" ? "/app" : "/login"}
-                    className={`mt-6 block w-full px-4 py-2.5 text-center text-sm ${
-                      featured ? "btn-primary" : "btn-ghost"
-                    }`}
-                  >
-                    {key === "free" ? "Start free" : `Get ${PLANS[key].name}`}
-                  </Link>
+                  {key === "free" ? (
+                    <Link href="/app" className="btn-ghost mt-6 block w-full px-4 py-2.5 text-center text-sm">
+                      Start free
+                    </Link>
+                  ) : (
+                    <WhatsAppContact
+                      email={null}
+                      label={key === "pro" ? "Get Creator Pro" : key === "agency" ? "Get Agency Pro" : "Buy credits"}
+                      size="sm"
+                    />
+                  )}
                 </div>
               );
             })}

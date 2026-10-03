@@ -70,6 +70,7 @@ export function Analyzer({
   analysesUsed,
   monthlyLimit,
   videoTrialUsed,
+  email,
   codesEnabled,
   priceNote,
 }: {
@@ -78,6 +79,7 @@ export function Analyzer({
   analysesUsed: number;
   monthlyLimit: number;
   videoTrialUsed: boolean;
+  email: string | null;
   codesEnabled: boolean;
   priceNote: string;
 }) {
@@ -431,6 +433,7 @@ export function Analyzer({
         feature={gate?.feature ?? "Creator Pro"}
         detail={gate?.detail ?? ""}
         priceNote={priceNote}
+        email={email}
         signedIn={signedIn}
         plan={plan}
         codesEnabled={codesEnabled}

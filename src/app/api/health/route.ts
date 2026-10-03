@@ -17,6 +17,7 @@ export async function GET() {
     serviceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     siteUrl: Boolean(process.env.NEXT_PUBLIC_SITE_URL),
     activationCodes: Boolean(process.env.PRO_ACTIVATION_CODES),
+    cronSecret: Boolean(process.env.CRON_SECRET),
   };
 
   const required: (keyof typeof checks)[] = ["gemini", "supabaseUrl", "supabaseAnon", "serviceRole"];

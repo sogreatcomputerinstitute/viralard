@@ -92,8 +92,9 @@ export default async function AppPage() {
           plan={plan}
           analysesUsed={analysesUsed}
           monthlyLimit={FREE_MONTHLY_LIMIT}
-          videoTrialUsed={videoTrialUsed}
-codesEnabled={isActivationConfigured()}
+videoTrialUsed={videoTrialUsed}
+          email={email}
+          codesEnabled={isActivationConfigured()}
           priceNote={`${formatPrice(proPrice)}${proPrice.cadence}`}
         />
       </main>

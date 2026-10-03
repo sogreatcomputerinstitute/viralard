@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { WhatsAppContact } from "@/components/WhatsAppContact";
 
 type RecentHook = {
   id: string;
@@ -195,15 +196,19 @@ export function AccountPanel({
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <span className="text-2xl font-semibold tracking-tight text-ink">{proPrice}</span>
-            <Link href="/login" className="btn-primary px-5 py-2.5 text-sm">
-              Upgrade
+            <Link href="/login" className="btn-ghost px-5 py-2.5 text-sm">
+              Compare plans
             </Link>
           </div>
 
+          <div className="mt-5 border-t border-white/8 pt-5">
+            <WhatsAppContact email={email} />
+          </div>
+
           {codesEnabled ? (
-            <form onSubmit={activate} className="mt-6 border-t border-white/8 pt-5">
+            <form onSubmit={activate} className="mt-5 border-t border-white/8 pt-5">
               <label htmlFor="code" className="text-xs text-ink-muted">
-                Got an activation code?
+                Already have a code?
               </label>
               <div className="mt-2 flex gap-2">
                 <input

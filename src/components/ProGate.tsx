@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/Modal";
+import { WhatsAppContact } from "@/components/WhatsAppContact";
 
 export function ProGate({
   open,
@@ -10,6 +11,7 @@ export function ProGate({
   feature,
   detail,
   priceNote,
+  email,
   signedIn,
   plan,
   codesEnabled,
@@ -20,6 +22,7 @@ export function ProGate({
   feature: string;
   detail: string;
   priceNote: string;
+  email: string | null;
   signedIn: boolean;
   plan: "free" | "pro";
   codesEnabled: boolean;
@@ -85,41 +88,52 @@ export function ProGate({
             <Link href="/login" className="btn-primary mt-5 block px-5 py-2.5 text-center text-sm">
               Sign in to continue
             </Link>
-          ) : codesEnabled ? (
-            <form onSubmit={activate} className="mt-5 space-y-3">
-              <label htmlFor="activation" className="text-xs text-ink-muted">
-                Got an activation code?
-              </label>
-              <input
-                id="activation"
-                value={code}
-                onChange={(event) => {
-                  setCode(event.target.value);
-                  setStatus("idle");
-                }}
-                placeholder="VIRAL-PRO-XXXX"
-                className="focus-ring w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm uppercase tracking-wide outline-none"
-              />
-              <button
-                type="submit"
-                disabled={status === "checking" || !code.trim()}
-                className="btn-ghost w-full px-4 py-2.5 text-sm disabled:opacity-50"
-              >
-                {status === "checking" ? "Checking..." : "Activate Pro"}
-              </button>
-              {message ? (
-                <p className={`text-xs ${status === "error" ? "text-bad" : "text-good"}`}>{message}</p>
-              ) : null}
-            </form>
           ) : (
-            <p className="mt-5 text-[11px] leading-relaxed text-ink-muted">
-              Card checkout is not connected yet. Ask Ask Ninja Tech for a founder code.
-            </p>
+            <div className="mt-5 space-y-4">
+              <WhatsAppContact email={email} />
+
+              {codesEnabled ? (
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-center text-[11px] text-ink-muted underline-offset-4 hover:text-ink hover:underline">
+                    Already have a code?
+                  </summary>
+
+                  <form onSubmit={activate} className="mt-3 space-y-3">
+                    <input
+                      id="activation"
+                      value={code}
+                      onChange={(event) => {
+                        setCode(event.target.value);
+                        setStatus("idle");
+                      }}
+                      placeholder="VIRAL-PRO-XXXX"
+                      className="focus-ring w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm uppercase tracking-wide outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={status === "checking" || !code.trim()}
+                      className="btn-ghost w-full px-4 py-2.5 text-sm disabled:opacity-50"
+                    >
+                      {status === "checking" ? "Checking..." : "Activate Pro"}
+                    </button>
+                    {message ? (
+                      <p className={`text-xs ${status === "error" ? "text-bad" : "text-good"}`}>{message}</p>
+                    ) : null}
+                  </form>
+                </details>
+              ) : null}
+
+              <p className="text-center text-[11px] leading-relaxed text-ink-muted">
+                Codes are activated against your signed-in account, so sign in first.
+              </p>
+            </div>
           )}
 
-          <Link href="/#pricing" className="btn-primary mt-5 block px-5 py-2.5 text-center text-sm">
-            Upgrade to Pro
-          </Link>
+          {signedIn ? (
+            <Link href="/account" className="mt-3 block text-center text-[11px] text-ink-muted underline-offset-4 hover:text-ink hover:underline">
+              Manage your plan in Account
+            </Link>
+          ) : null}
         </>
       )}
     </Modal>
