@@ -6,6 +6,8 @@ import { TeaserAnalyzer } from "@/components/TeaserAnalyzer";
 import { AnimatedHero, AnimatedSection, AnimatedStagger } from "@/components/Motion";
 import { AuroraProvider } from "@/components/AuroraProvider";
 import { WhatsAppContact } from "@/components/WhatsAppContact";
+import { AdSlot } from "@/components/AdSlot";
+import { adSlots } from "@/lib/ads";
 import { PATTERNS } from "@/lib/engine/patterns";
 import { scoreHook } from "@/lib/engine/score";
 import { FREE_MONTHLY_LIMIT } from "@/lib/limits";
@@ -98,6 +100,7 @@ const PLAN_ORDER: PlanKey[] = ["free", "pro", "credits", "agency"];
 
 export default async function LandingPage() {
   const region = await detectRegion();
+  const [afterProblem, afterFeatures] = adSlots();
 
   return (
     <div className="flex min-h-full flex-col">
@@ -246,6 +249,10 @@ export default async function LandingPage() {
           </AnimatedStagger>
         </AnimatedSection>
 
+        <AnimatedSection className="pb-16">
+          <AdSlot slot={afterProblem} />
+        </AnimatedSection>
+
         <AnimatedSection id="pricing" className="border-t border-white/8 py-16">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -330,6 +337,10 @@ export default async function LandingPage() {
             <span className="rounded-md border border-white/10 px-2 py-1 font-medium text-zinc-300">Paystack</span>
             <span>We never store your card details.</span>
           </div>
+        </AnimatedSection>
+
+        <AnimatedSection className="pb-16">
+          <AdSlot slot={afterFeatures} />
         </AnimatedSection>
 
         <AnimatedSection className="border-t border-white/8 py-16">

@@ -1,6 +1,8 @@
 ﻿import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AccountPanel } from "@/components/AccountPanel";
+import { AdSlot } from "@/components/AdSlot";
+import { adSlots } from "@/lib/ads";
 import { FREE_MONTHLY_LIMIT, CREDITS_PER_PACK } from "@/lib/limits";
 import { isActivationConfigured } from "@/lib/activation";
 import { formatPrice, priceFor } from "@/lib/pricing";
@@ -27,6 +29,7 @@ export default async function AccountPage() {
   if (!data.user) redirect("/login");
 
   const region = await detectRegion();
+  const rail = adSlots()[2];
   const proPrice = priceFor("pro", region);
   const creditPrice = priceFor("credits", region);
 
@@ -82,6 +85,8 @@ export default async function AccountPage() {
           creditPrice={`${formatPrice(creditPrice)}${creditPrice.cadence}`}
           recentHooks={recent ?? []}
         />
+
+        <AdSlot slot={rail} />
       </main>
     </div>
   );

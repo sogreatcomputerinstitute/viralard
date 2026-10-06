@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { isGeminiConfigured } from "@/lib/ai/gemini";
 
 export const runtime = "nodejs";
@@ -18,6 +18,8 @@ export async function GET() {
     siteUrl: Boolean(process.env.NEXT_PUBLIC_SITE_URL),
     activationCodes: Boolean(process.env.PRO_ACTIVATION_CODES),
     cronSecret: Boolean(process.env.CRON_SECRET),
+    monetag: process.env.MONETAG_ENABLED === "true",
+    adSponsor: Boolean(process.env.AD_SPONSOR_HREF),
   };
 
   const required: (keyof typeof checks)[] = ["gemini", "supabaseUrl", "supabaseAnon", "serviceRole"];

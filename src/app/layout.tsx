@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { Analytics } from "@/components/Analytics";
 import { StructuredData } from "@/components/StructuredData";
+import { Monetag } from "@/components/Monetag";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -84,6 +85,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             style={{ background: "var(--color-accent)", animationDelay: "-14s" }}
           />
         </div>
+        <Monetag />
         <StructuredData />
         <Analytics />
         {children}
